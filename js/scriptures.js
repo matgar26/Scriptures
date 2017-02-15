@@ -3,7 +3,7 @@
     gridName, id, init, jstTitle, maxBookId, minBookId, nextChapter, numChapters,
     parentBookId, prevChapter, push, slice, subdiv, success, tocName,
     urlForScriptureChapter, url, urlPath, volumes, webTitle, fullname, html, hash, location,
-    onHashChanged, length, substring, split
+    onHashChanged, length, substring, split, log, error
 */
 /*global $, Number, window */
 /*jslint
@@ -14,11 +14,16 @@
 let Scriptures = (function() {
     //Force browser into strict mode
     "use strict";
+//Constants
+    const SCRIPTURES_URL = "http://scriptures.byu.edu/mapscrip/mapgetscrip.php";
+
+//Private Variables
     // Main data structure of all book objects.
     let books;
     // This object holds the books that are top-level "volumes".
     let volumeArray;
-    // Private Methods
+    let requestedBreadCrumbs;
+// Private Methods
 
     const bookChapterValid = function (bookId, chapter){
         let book = books[bookId];
@@ -81,7 +86,7 @@ let Scriptures = (function() {
             if (isJst !== undefined && isJst) {
                 options += "&jst=JST";
             }
-            return "http://scriptures.byu.edu/scriptures/scriptures_ajax/" + bookId + "/" + chapter + "?verses=" + options;
+            return SCRIPTURES_URL + "?book=" + bookId + "&chap=" + chapter + "&verses=" + options;
         }
     };
 
@@ -111,17 +116,35 @@ let Scriptures = (function() {
         }
     };
 
+    const getScriptureCallback = function (html) {
+        $("#crumb").html(requestedBreadCrumbs);
+        $("#scriptures").html(html);
+    };
+
+    const getScriptureFailed = function () {
+        console.log("Warning: scripture request from server failed");
+    };
+
     const navigateChapter = function(bookId, chapter){
-        $("#scriptures").html("<p>Book: " + bookId + ", Chapter: " + chapter + "</p>");
-        let book = books[bookId];
-        let volume = volumeArray[book.parentBookId - 1];
-        $("#crumb").html(breadcrumbs(volume, book, chapter));
+        // $("#scriptures").html("<p>Book: " + bookId + ", Chapter: " + chapter + "</p>");
+        if (bookId !== undefined) {
+            let book = books[bookId];
+            let volume = volumeArray[book.parentBookId - 1];
+
+            requestedBreadCrumbs = breadcrumbs(volume, book, chapter);
+
+            $.ajax({
+                "url": encodedScriptureUrlParameters(bookId, chapter),
+                "success": getScriptureCallback,
+                "error": getScriptureFailed
+            });
+        }
     };
 
     const navigateHome = function(volumeId){
         let displayedVolume;
         let navContents = "<div id=\"scripnav\">";
- 
+
         volumeArray.forEach(function (volume) {
             if (volumeId === undefined || volume.id === volumeId) {
                 navContents += "<div class=\"volume\"><a name=\"v" + volume.id + "\" /><h5>" + volume.fullName + "</h5></div><div class=\"books\">";
@@ -143,7 +166,7 @@ let Scriptures = (function() {
         $("#crumb").html(breadcrumbs(displayedVolume));
     };
 
-    // Public API
+// Public API
     const publicInterface = {
         bookById(bookId) {
             return books[booksId];
