@@ -3,9 +3,10 @@
     gridName, id, init, jstTitle, maxBookId, minBookId, nextChapter, numChapters,
     parentBookId, prevChapter, push, slice, subdiv, success, tocName,
     urlForScriptureChapter, url, urlPath, volumes, webTitle, fullname, html, hash, location,
-    onHashChanged, length, substring, split, log, error
+    onHashChanged, length, substring, split, log, error, hasOwnProperty, setTimeout, crumbsOut,
+    animate, opacity, queue, duration, complete, remove, crumbsIn, css, appendTo, scripOut, scripIn
 */
-/*global $, Number, window */
+/*global $, Number, window, console */
 /*jslint
     es6
     browser: true
@@ -15,9 +16,11 @@ let Scriptures = (function() {
     //Force browser into strict mode
     "use strict";
 //Constants
+    const ANIMATION_DURATION = 700;
     const SCRIPTURES_URL = "http://scriptures.byu.edu/mapscrip/mapgetscrip.php";
 
 //Private Variables
+    let animatingElements = {};
     // Main data structure of all book objects.
     let books;
     // This object holds the books that are top-level "volumes".
@@ -25,7 +28,7 @@ let Scriptures = (function() {
     let requestedBreadCrumbs;
 // Private Methods
 
-    const bookChapterValid = function (bookId, chapter){
+    function bookChapterValid (bookId, chapter){
         let book = books[bookId];
 
         if (book === undefined || chapter < 0 || chapter > book.numChapters) {
@@ -36,9 +39,9 @@ let Scriptures = (function() {
             return false;
         }
         return true;
-    };
+    }
 
-    const breadcrumbs = function (volume, book, chapter) {
+    function breadcrumbs (volume, book, chapter) {
         let crumbs;
 
         if (volume === undefined) {
@@ -60,9 +63,9 @@ let Scriptures = (function() {
             }
         }
         return crumbs + "</ul>";
-    };
+    }
 
-    const cacheBooks = function() {
+    function cacheBooks () {
         volumeArray.forEach(function(volume) {
             let volumeBooks = [];
             let bookId = volume.minBookId;
@@ -74,9 +77,9 @@ let Scriptures = (function() {
 
             volume.books = volumeBooks;
         });
-    };
+    }
 
-    const encodedScriptureUrlParameters = function(bookId, chapter, verses, isJst) {
+    function encodedScriptureUrlParameters (bookId, chapter, verses, isJst) {
         let options = "";
 
         if (bookId !== undefined && chapter !== undefined) {
@@ -88,9 +91,25 @@ let Scriptures = (function() {
             }
             return SCRIPTURES_URL + "?book=" + bookId + "&chap=" + chapter + "&verses=" + options;
         }
-    };
+    }
 
-    const navigateBook = function (bookId) {
+    function navigateChapter (bookId, chapter){
+        // $("#scriptures").html("<p>Book: " + bookId + ", Chapter: " + chapter + "</p>");
+        if (bookId !== undefined) {
+            let book = books[bookId];
+            let volume = volumeArray[book.parentBookId - 1];
+
+            requestedBreadCrumbs = breadcrumbs(volume, book, chapter);
+
+            $.ajax({
+                "url": encodedScriptureUrlParameters(bookId, chapter),
+                "success": getScriptureCallback,
+                "error": getScriptureFailed
+            });
+        }
+    }
+
+    function navigateBook (bookId) {
         let book = books[bookId];
         let volume = volumeArray[book.parentBookId - 1];
         let chapter = 1;
@@ -112,36 +131,68 @@ let Scriptures = (function() {
             navContents += "</div>";
 
             $("#scriptures").html(navContents);
-            $("#crumb").html(breadcrumbs(volume, book));
+            transitionScriptures(navContents);
+            transitionBreadcrumbs(breadcrumbs(volume, book));
         }
-    };
+    }
 
-    const getScriptureCallback = function (html) {
-        $("#crumb").html(requestedBreadCrumbs);
-        $("#scriptures").html(html);
-    };
+    function transitionBreadcrumbs (newCrumbs) {
+        transitionCrossfade (newCrumbs, "crumbs", "#crumb", "ul");
+    }
 
-    const getScriptureFailed = function () {
-        console.log("Warning: scripture request from server failed");
-    };
+    function transitionScriptures (newContent) {
+        transitionCrossfade (newContent, "scriptures", "#scriptures", "*")
+    }
 
-    const navigateChapter = function(bookId, chapter){
-        // $("#scriptures").html("<p>Book: " + bookId + ", Chapter: " + chapter + "</p>");
-        if (bookId !== undefined) {
-            let book = books[bookId];
-            let volume = volumeArray[book.parentBookId - 1];
+    function transitionCrossfade (newContent, property, parentSelector, childSelector) {
+        if (animatingElements.hasOwnProperty(property + "In") || animatingElements.hasOwnProperty(property + "Out")) {
+            window.setTimeout(transitionCrossfade, 200, newContent);
+            return;
+        }
 
-            requestedBreadCrumbs = breadcrumbs(volume, book, chapter);
+        let content = $(parentSelector + " " + childSelector);
 
-            $.ajax({
-                "url": encodedScriptureUrlParameters(bookId, chapter),
-                "success": getScriptureCallback,
-                "error": getScriptureFailed
+        newContent = $(newContent);
+
+        if (content.length > 0) {
+            animatingElements[property + "Out"] = content;
+            content.animate({
+                opacity: 0
+            }, {
+                queue: false,
+                duration: ANIMATION_DURATION,
+                complete: function () {
+                    content.remove();
+                    delete animatingElements[property + "Out"];
+                }
             });
-        }
-    };
 
-    const navigateHome = function(volumeId){
+            animatingElements[property + "In"] = newContent;
+            newContent.css({ opacity: 0 }).appendTo(parentSelector);
+            newContent.animate({
+                opacity: 1
+            }, {
+                queue: false,
+                duration: ANIMATION_DURATION,
+                complete: function () {
+                    delete animatingElements[property + "In"];
+                }
+            });
+        } else {
+            $(parentSelector).html(newContent);
+        }
+    }
+
+    function getScriptureCallback (html) {
+        transitionScriptures(html);
+        transitionBreadcrumbs(requestedBreadCrumbs);
+    }
+
+    function getScriptureFailed () {
+        console.log("Warning: scripture request from server failed");
+    }
+
+    function navigateHome (volumeId){
         let displayedVolume;
         let navContents = "<div id=\"scripnav\">";
 
@@ -154,17 +205,20 @@ let Scriptures = (function() {
                 });
 
                 navContents += "</div>";
-                displayedVolume = volume;
-            }
 
+                if (volume.id === volumeId) {
+                    displayedVolume = volume;
+                }
+            }
         });
 
         navContents += "<br /><br /></div>";
 
-        $("#scriptures").html(navContents);
+        // $("#scriptures").html(navContents);
         // let volume = volumeArray[volumeId - 1];
-        $("#crumb").html(breadcrumbs(displayedVolume));
-    };
+        transitionScriptures(navContents);
+        transitionBreadcrumbs(breadcrumbs(displayedVolume));
+    }
 
 // Public API
     const publicInterface = {
