@@ -47,7 +47,7 @@ let Scriptures = (function() {
     }
 
     function breadcrumbs (volume, book, chapter) {
-        let crumbs "<ul><li>";
+        let crumbs = "<ul><li>";
 
         if (volume === undefined) {
             crumbs += "The Scriptures</li>";
