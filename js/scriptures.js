@@ -25,6 +25,11 @@ let Scriptures = (function() {
     let books;
     // This object holds the books that are top-level "volumes".
     let volumeArray;
+
+    //Next and Previous
+    let requestedNextPrev;
+
+    // Breadcrumbs
     let requestedBreadCrumbs;
 // Private Methods
 
@@ -93,6 +98,39 @@ let Scriptures = (function() {
         }
     }
 
+    function nextChapter(bookId, chapter) {
+        let book = books[bookId];
+
+        if (book !== undefined) {
+            if (chapter < book.numChapters) {
+                return [bookId, chapter + 1];
+            }
+            let nextBook = books[bookId + 1];
+            if (nextBook !== undefined) {
+                let nextChapterValue = 0;
+
+                if (nextBook.numChapters > 0) {
+                    nextChapterValue = 1;
+                }
+                return [nextBook.id, nextChapterValue];
+            }
+        }
+    }
+
+    function prevChapter(bookId, chapter) {
+        let book = books[bookId];
+
+        if (book !== undefined) {
+            if (chapter > 1) {
+                return [bookId, chapter - 1];
+            }
+            let prevBook = books[bookId - 1];
+            if (prevBook !== undefined) {
+                return [prevBook.id, prevBook.numChapters];
+            }
+        }
+    }
+
     function navigateChapter (bookId, chapter){
         // $("#scriptures").html("<p>Book: " + bookId + ", Chapter: " + chapter + "</p>");
         if (bookId !== undefined) {
@@ -100,6 +138,24 @@ let Scriptures = (function() {
             let volume = volumeArray[book.parentBookId - 1];
 
             requestedBreadCrumbs = breadcrumbs(volume, book, chapter);
+
+            let nextPrev = prevChapter(bookId, chapter);
+
+            if (nextPrev === undefined){
+              requestedNextPrev = "";
+            }else{
+              requestedNextPrev = "<a href = \"javascript:void(0);\" onclick=\"Scriptures.hash(0, " +
+              nextPrev[0]+", " + nextPrev[1] +
+              ")\"><i class = \"material-icons\">skip_previous</i></a>"
+            }
+
+            nextPrev = nextChapter(bookId, chapter);
+
+            if (nextPrev !== undefined){
+              requestedNextPrev += "<a href = \"javascript:void(0);\" onclick=\"Scriptures.hash(0, " +
+              nextPrev[0]+", " + nextPrev[1] +
+              ")\"><i class = \"material-icons\">skip_next</i></a>"
+            }
 
             $.ajax({
                 "url": encodedScriptureUrlParameters(bookId, chapter),
@@ -184,6 +240,9 @@ let Scriptures = (function() {
     }
 
     function getScriptureCallback (html) {
+      html = $(html)
+      html.find(".navheading").append("<div class=\"nextprev\">" + requestedNextPrev + "</div>");
+
         transitionScriptures(html);
         transitionBreadcrumbs(requestedBreadCrumbs);
     }
@@ -281,24 +340,6 @@ let Scriptures = (function() {
             });
         },
 
-        nextChapter(bookId, chapter) {
-            let book = books[bookId];
-
-            if (book !== undefined) {
-                if (chapter < book.numChapters) {
-                    return [bookId, chapter + 1];
-                }
-                let nextBook = books[bookId + 1];
-                if (nextBook !== undefined) {
-                    let nextChapter = 0;
-
-                    if (nextBook.numChapters > 0) {
-                        nextChapter = 1;
-                    }
-                    return [nextBook.id, nextBook.numChapters];
-                }
-            }
-        },
 
         onHashChanged(){
             let bookId;
@@ -345,19 +386,7 @@ let Scriptures = (function() {
             }
         },
 
-        prevChapter(bookId, chapter) {
-            let book = books[bookId];
 
-            if (book !== undefined) {
-                if (chapter > 1) {
-                    return [bookId, chapter - 1];
-                }
-                let prevBook = books[bookId - 1];
-                if (prevBook !== undefined) {
-                    return [prevBook.id, prevBook.numChapters];
-                }
-            }
-        },
         urlForScriptureChapter(bookId, chapter, verses, isJst) {
             let book = books[bookId];
 
