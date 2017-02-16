@@ -47,12 +47,12 @@ let Scriptures = (function() {
     }
 
     function breadcrumbs (volume, book, chapter) {
-        let crumbs;
+        let crumbs "<ul><li>";
 
         if (volume === undefined) {
-            crumbs = "<ul><li>The Scriptures</li>";
+            crumbs += "The Scriptures</li>";
         } else {
-            crumbs = "<ul><li><a href=\"javascript:void(0);\" onclick=\"Scriptures.hash()\">The Scriptures</a></li>";
+            crumbs += "<a href=\"javascript:void(0);\" onclick=\"Scriptures.hash()\">The Scriptures</a></li>";
 
             if (book === undefined) {
                 crumbs += "<li>" + volume.fullName + "</li>";
@@ -85,9 +85,8 @@ let Scriptures = (function() {
     }
 
     function encodedScriptureUrlParameters (bookId, chapter, verses, isJst) {
-        let options = "";
-
         if (bookId !== undefined && chapter !== undefined) {
+            let options = "";
             if (verses !== undefined) {
                 options += verses;
             }
@@ -374,9 +373,9 @@ let Scriptures = (function() {
 
                 if(books[bookId] === undefined) {
                     navigateHome();
+                }else{
+                  navigateBook(bookId);
                 }
-
-                navigateBook(bookId);
             } else {
                 //display a specific chapter
                 bookId = Number(ids[1]);
@@ -384,9 +383,9 @@ let Scriptures = (function() {
 
                 if (!bookChapterValid(bookId, chapter)) {
                     navigateHome();
+                }else{
+                  navigateChapter(bookId, chapter);
                 }
-
-                navigateChapter(bookId, chapter);
             }
         },
 
